@@ -9,12 +9,13 @@ import org.slf4j.LoggerFactory;
  * Date: 10/25/15
  * Time: 2:24 PM
  */
-public class AutoChatter {
+public class AutoChatterChannel {
     private static final Logger logger = LoggerFactory.getLogger(Chat.class);
     static int counter = 0;
     static final Object lock = new Object();
     static boolean started = false;
     static Thread thread;
+    static String channelId;
 
     public static void stopAutoChatter() {
         synchronized (lock) {
@@ -26,11 +27,12 @@ public class AutoChatter {
 
     }
 
-    public static void startAutoChatter() {
+    public static void startAutoChatter(String id) {
         synchronized (lock) {
 
             if (!started) {
-                logger.info("Starting auto chatter");
+                channelId = id;
+                logger.info("Starting auto chatter on channel " + id);
                 Runnable r = new Runnable() {
                     @Override
                     public void run() {
@@ -53,13 +55,13 @@ public class AutoChatter {
             Thread.sleep(3000);
             while (true) {
                 logger.info("Auto chat loop " + counter);
-                Thread.sleep(20);
-                Broadcaster caster = Universe.broadcasterFactory().lookup("/chat");
+                Thread.sleep(2);
+                Broadcaster caster = Universe.broadcasterFactory().lookup("/channel/testChannel");
                 if (caster != null) {
                     logger.info("Chatted");
                     caster.broadcast(new Message("autochat", "" + counter));
                 } else {
-                    logger.info("Did not chat");
+                    logger.info("Did not chat!");
                     return;
                 }
                 ++counter;

@@ -15,19 +15,19 @@
  */
 package org.atmosphere.samples.chat;
 
-import org.atmosphere.config.service.Disconnect;
-import org.atmosphere.config.service.Heartbeat;
-import org.atmosphere.config.service.ManagedService;
-import org.atmosphere.config.service.Ready;
+import org.atmosphere.client.TrackMessageSizeInterceptor;
+import org.atmosphere.config.service.*;
 import org.atmosphere.cpr.AtmosphereResource;
 import org.atmosphere.cpr.AtmosphereResourceEvent;
-import org.atmosphere.cpr.Broadcaster;
 import org.atmosphere.cpr.BroadcasterFactory;
+import org.atmosphere.interceptor.AtmosphereResourceLifecycleInterceptor;
+import org.atmosphere.interceptor.HeartbeatInterceptor;
+import org.atmosphere.interceptor.SuspendTrackerInterceptor;
+import org.atmosphere.samples.chat.custom.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import java.io.IOException;
 
 import static org.atmosphere.cpr.ApplicationConfig.MAX_INACTIVE;
@@ -35,27 +35,30 @@ import static org.atmosphere.cpr.ApplicationConfig.MAX_INACTIVE;
 /**
  * Simple annotated class that demonstrate the power of Atmosphere. This class supports all transports, support
  * message length garantee, heart beat, message cache thanks to the {@link ManagedService}.
- * <p/>
- * This class use CDI for creating instance of Encoder and Decoder.
  */
-@ManagedService(path = "/chat", atmosphereConfig = MAX_INACTIVE + "=120000")
-public class SpringInjectChat {
-    private final Logger logger = LoggerFactory.getLogger(SpringInjectChat.class);
+@Config
+@ManagedService(
+        path = "/channel/{id: [a-zA-Z][a-zA-Z_0-9]*}",
+        atmosphereConfig = MAX_INACTIVE + "=120000",
+        interceptors = {
+                AtmosphereResourceLifecycleInterceptor.class,
+                TrackMessageSizeInterceptor.class,
+                SuspendTrackerInterceptor.class,
+                HeartbeatInterceptor.class
+        }
+)
+public class ChatChannel {
+    private final Logger logger = LoggerFactory.getLogger(ChatChannel.class);
 
-    // Uncomment for changing response's state
-    //    @Get
-    //    public void init(AtmosphereResource r) {
-    //        r.getResponse().setCharacterEncoding("UTF-8");
-    //    }
+// Uncomment for changing response's state
+//    @Get
+//    public void init(AtmosphereResource r) {
+//        r.getResponse().setCharacterEncoding("UTF-8");
+//    }
 
     // For demonstrating injection.
     @Inject
     private BroadcasterFactory factory;
-
-    // For demonstrating javax.inject.Named
-    @Inject
-    @Named("/chat")
-    private Broadcaster broadcaster;
 
     @Inject
     private AtmosphereResource r;
@@ -64,7 +67,7 @@ public class SpringInjectChat {
     private AtmosphereResourceEvent event;
 
     @Heartbeat
-    public void onHeartbeat(/*final AtmosphereResourceEvent event*/) {
+    public void onHeartbeat(final AtmosphereResourceEvent event) {
         logger.trace("Heartbeat send by {}", event.getResource());
     }
 
@@ -73,8 +76,7 @@ public class SpringInjectChat {
      */
     @Ready
     public void onReady(/* In you don't want injection AtmosphereResource r */) {
-        logger.info("Browser {} connected", r.uuid());
-        logger.info("BroadcasterFactory used {}", factory.getClass().getName());
+        AutoChatterChannel.startAutoChatter(r.uuid());
     }
 
     /**
@@ -87,6 +89,7 @@ public class SpringInjectChat {
         } else if (event.isClosedByClient()) {
             logger.info("Browser {} closed the connection", event.getResource().uuid());
         }
+        AutoChatterChannel.stopAutoChatter();
     }
 
     /**
