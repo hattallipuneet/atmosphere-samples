@@ -15,14 +15,15 @@
  */
 package org.atmosphere.samples.chat;
 
+import org.atmosphere.client.TrackMessageSizeInterceptor;
 import org.atmosphere.config.service.Disconnect;
 import org.atmosphere.config.service.Heartbeat;
 import org.atmosphere.config.service.ManagedService;
 import org.atmosphere.config.service.Ready;
-import org.atmosphere.cpr.AtmosphereResource;
-import org.atmosphere.cpr.AtmosphereResourceEvent;
-import org.atmosphere.cpr.Broadcaster;
-import org.atmosphere.cpr.BroadcasterFactory;
+import org.atmosphere.cpr.*;
+import org.atmosphere.interceptor.AtmosphereResourceLifecycleInterceptor;
+import org.atmosphere.interceptor.HeartbeatInterceptor;
+import org.atmosphere.interceptor.SuspendTrackerInterceptor;
 import org.atmosphere.samples.chat.custom.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,16 @@ import static org.atmosphere.cpr.ApplicationConfig.MAX_INACTIVE;
  * message length garantee, heart beat, message cache thanks to the {@link ManagedService}.
  */
 @Config
-@ManagedService(path = "/chat", atmosphereConfig = MAX_INACTIVE + "=120000")
+@ManagedService(
+        path = "/chat",
+        atmosphereConfig = MAX_INACTIVE + "=120000",
+        interceptors = {
+                AtmosphereResourceLifecycleInterceptor.class,
+                TrackMessageSizeInterceptor.class,
+                SuspendTrackerInterceptor.class,
+                HeartbeatInterceptor.class
+        }
+)
 public class Chat {
     private final Logger logger = LoggerFactory.getLogger(Chat.class);
 
@@ -70,19 +80,17 @@ public class Chat {
 
     /**
      * Invoked when the connection as been fully established and suspended, e.g ready for receiving messages.
-     *
      */
     @Ready
     public void onReady(/* In you don't want injection AtmosphereResource r */) {
         logger.info("Browser {} connected", r.uuid());
         logger.info("BroadcasterFactory used {}", factory.getClass().getName());
         logger.info("Broadcaster injected {}", broadcaster.getID());
-
+        AutoChatter.startAutoChatter();
     }
 
     /**
      * Invoked when the client disconnect or when an unexpected closing of the underlying connection happens.
-     *
      */
     @Disconnect
     public void onDisconnect(/** If you don't want to use injection AtmosphereResourceEvent event*/) {
@@ -91,6 +99,7 @@ public class Chat {
         } else if (event.isClosedByClient()) {
             logger.info("Browser {} closed the connection", event.getResource().uuid());
         }
+        AutoChatter.stopAutoChatter();
     }
 
     /**
